@@ -15,7 +15,7 @@ Description
 -----------
 
 Maple library for evaluating functions at roots of polynomials. 
-See the article (Article placeholder) for
+See the article http://arxiv.org/abs/2102.00115 for
 theoretical details and Section 5 of that article for discussion
 of the included examples. It has been tested on Maple 2020.
 
