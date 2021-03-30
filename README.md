@@ -15,7 +15,7 @@ Description
 -----------
 
 Maple library for evaluating functions at roots of polynomials. 
-See the article http://arxiv.org/abs/2102.00115 for
+See the article (Article placeholder) for
 theoretical details and Section 5 of that article for discussion
 of the included examples. It has been tested on Maple 2020.
 
@@ -42,10 +42,10 @@ The main export is the procedure `EstimateRootsAndCertifyEvaluations`
     EstimationPrecision)
 ```
 
--  **polynomial_to_solve** is a polynomial with rational (Maple data type fraction) coefficients.
+-  **polynomial_to_solve** is a polynomial with rational coefficients.
 -  **[function_to_evaluate_1,...,function_to_evaluate_n]** is a list of       locally Hölder continuous functions.
 -  **HolderFunction** is a procedure which computes Hölder information for functions
-   in the evaluation list. For example, the functions are polynomials, then    **HolderFunction** could be 
+   in the evaluation list. For example, if the functions are polynomials, then **HolderFunction** could be 
    the built in procedure **HolderInformationForPolynomial**  provided by **EvalCertification**.
 -  **EstimationPrecision** is a positive rational number.
 

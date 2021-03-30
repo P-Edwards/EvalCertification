@@ -8,10 +8,11 @@ option package;
 export HolderInformationForPolynomial, 
 	   HolderInformationForExponential, 
 	   HolderInformationForRationalPolynomial, 
-	   EstimateRootsAndCertifyEvaluations;
+	   EstimateRootsAndCertifyEvaluations,
+	   ExpandToImaginaryAndReal;
 
+#ExpandToImaginaryAndReal,
 local SqrFreeFactorization,
-	  ExpandToImaginaryAndReal,
 	  SingleEqualityToEstimate,
 	  BoxEqualitiesToEstimate,
 	  EstimateAndClassifySolutions,
@@ -70,19 +71,11 @@ EstimateAndClassifySolutions := proc(F, epsilon)
 	equations := system_with_imaginary_parts[1]; 
 	norms := system_with_imaginary_parts[2]; 
 	R := PolynomialRing([seq(indets(norms)[i], i = 1 .. nops(indets(norms)))]); 
-	norm_1_boxes := RealRootIsolate([op(equations), op(norms)], [], [], [], R, 'abserr' = epsilon); 
+	norm_1_boxes := RealRootIsolate([op(equations)], [], [], [], R, 'abserr' = epsilon); 
 	norm_1_values := map(BoxValues, norm_1_boxes, R); 
 	norm_1_values_refined := map(BoxEqualitiesToEstimate, norm_1_values); 
-	norm_1_values_refined := [seq(Record("value"=norm_1_values_refined[i], "norm_status"="ON"), i = 1 .. nops(norm_1_values_refined))]; 
-	norm_greater_boxes := RealRootIsolate(equations, [], norms, [], R, 'abserr' = epsilon); 
-	norm_greater_values := map(BoxValues, norm_greater_boxes, R); 
-	norm_greater_values_refined := map(BoxEqualitiesToEstimate, norm_greater_values); 
-	norm_greater_values_refined := [seq(Record("value"=norm_greater_values_refined[i], "norm_status"="OUTSIDE"), i = 1 .. nops(norm_greater_values_refined))];
-	norm_less_boxes := RealRootIsolate(equations, [], -norms, [], R, 'abserr' = epsilon); 
-	norm_less_values := map(BoxValues, norm_less_boxes, R); 
-	norm_less_values_refined := map(BoxEqualitiesToEstimate, norm_less_values); 
-	norm_less_values_refined := [seq(Record("value"=norm_less_values_refined[i], "norm_status"="INSIDE"), i = 1 .. nops(norm_less_values_refined))]; 
-	return [op(norm_1_values_refined), op(norm_greater_values_refined), op(norm_less_values_refined)]; 
+	norm_1_values_refined := [seq(Record("value"=norm_1_values_refined[i]), i = 1 .. nops(norm_1_values_refined))]; 
+	return [op(norm_1_values_refined)]; 
 end proc;
 
 # Compute local Lipschitz constant for univarite polynomial F at a point
@@ -179,19 +172,23 @@ end proc;
 
 EvaluateFunctionAtRoot := proc(Function, Root, Precision)
 	local SymbolicEval,DigitsBeforeDecimalPoint,DigitsAfterDecimalPoint;
-	SymbolicEval := subs(indets(Function)[1]=Root,Function);
+	if type(Function,procedure) then
+		SymbolicEval := Function(Root);
+	else
+		SymbolicEval := subs(indets(Function)[1]=Root,Function);
+	end if;
 	if evalb(SymbolicEval=0) then
 		return 0;
 	end if;
 	# Precision calculation: Figure out necessary number of digits
 	# in front of the decimal point, figure out the same for after
 	# the decimal point, then add them together.
-	DigitsBeforeDecimalPoint := max(ceil(log[10](abs(SymbolicEval))),0); 
+	DigitsBeforeDecimalPoint := max(ceil(evalf[1](log[10](abs(SymbolicEval)))),1); 
 	DigitsAfterDecimalPoint := max(-floor(log[10](Precision)),0);
-	return evalf[max(1,DigitsBeforeDecimalPoint+DigitsAfterDecimalPoint)](SymbolicEval);
+	return evalf[max(1,DigitsBeforeDecimalPoint+DigitsAfterDecimalPoint+1)](SymbolicEval);
 end proc;
 
-EstimateRootsAndCertifyEvaluations := proc(PolynomialToSolve, FunctionsToEvaluate, HolderEstimationProcedure, ErrorTolerance, AbandonThreshold := 10^(-20)) 
+EstimateRootsAndCertifyEvaluations := proc(PolynomialToSolve, FunctionsToEvaluate, HolderEstimationProcedure, ErrorTolerance, AbandonThreshold := 10^(-100)) 
 	local FactorsAndMultiplicities, Multiplicities, ClassifiedRoots, 
 	      RootsWithoutAdditionalInformation, HolderBounds, HolderCertificationBounds, 
 	      SharpenedRootTolerance, ClassifiedRootsWithMultiplicities, WorkingTolerance, ActualTolerance, 
@@ -204,7 +201,7 @@ EstimateRootsAndCertifyEvaluations := proc(PolynomialToSolve, FunctionsToEvaluat
 	# than the desired number because rounding error in the last reported digit
 	# could result in that amount of error
 	ActualTolerance := ErrorTolerance - (1/10)*ErrorTolerance;
-	WorkingTolerance := ActualTolerance;
+	WorkingTolerance := max(1/10,ActualTolerance);
 
 	# First Holder information step: Tightening the precision
 	# to avoid places where the evaluation functions aren't 
@@ -258,7 +255,7 @@ EstimateRootsAndCertifyEvaluations := proc(PolynomialToSolve, FunctionsToEvaluat
 			HolderBounds := [seq(map[2](HolderEstimationProcedure, FunctionsToEvaluate[i], RootsWithoutAdditionalInformation, 2*WorkingTolerance), i = 1 .. nops(FunctionsToEvaluate))];
 		end if;
 		HolderBounds := FlattenOnce(HolderBounds);
-		HolderCertificationBounds := map(HolderDataToCertificationTolerance, HolderBounds, WorkingTolerance);
+		HolderCertificationBounds := map(HolderDataToCertificationTolerance, HolderBounds, min(ActualTolerance,WorkingTolerance/2));
 		SharpenedRootTolerance := min(HolderCertificationBounds);
 		WorkingTolerance := 1/10*WorkingTolerance;
 	end do;
@@ -268,7 +265,7 @@ EstimateRootsAndCertifyEvaluations := proc(PolynomialToSolve, FunctionsToEvaluat
 	ClassifiedRoots := map(EstimateAndClassifySolutions, FactorsAndMultiplicities, SharpenedRootTolerance);
 	ClassifiedRoots := FlattenOnce(ClassifiedRoots);
 	arguments_for_output := Record("polynomial"=PolynomialToSolve,"evaluated_functions"=FunctionsToEvaluate,"error_tolerance"=ActualTolerance);
-	root_information_for_output := Record("root_values"=[seq(ClassifiedRoots[i]:-value, i=1..nops(ClassifiedRoots))], "root_norm_status"=[seq(ClassifiedRoots[i]:-norm_status, i=1..nops(ClassifiedRoots))],"root_multiplicities"=Multiplicities);
+	root_information_for_output := Record("root_values"=[seq(ClassifiedRoots[i]:-value, i=1..nops(ClassifiedRoots))], "root_multiplicities"=Multiplicities);
 	evaluation_information_for_output := Record();
 	for i to nops(FunctionsToEvaluate) do
 		current_evals := Record("evaluations_functions_"||i=map[2](EvaluateFunctionAtRoot,FunctionsToEvaluate[i],root_information_for_output:-root_values,ActualTolerance));
